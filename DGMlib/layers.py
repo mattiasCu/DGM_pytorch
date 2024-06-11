@@ -4,12 +4,12 @@ from pykeops.torch import LazyTensor
 from torch.nn import Module, ModuleList, Sequential
 from torch import nn
 
-#Euclidean distance
+#欧氏距离
 def pairwise_euclidean_distances(x, dim=-1):
     dist = torch.cdist(x,x)**2
     return dist, x
 
-# #Poincarè disk distance r=1 (Hyperbolic)
+#Poincarè disk 距离 r=1 (双曲距离)
 def pairwise_poincare_distances(x, dim=-1):
     x_norm = (x**2).sum(dim,keepdim=True)
     x_norm = (x_norm.sqrt()-1).relu() + 1 
@@ -20,10 +20,9 @@ def pairwise_poincare_distances(x, dim=-1):
     dist = torch.arccosh(1e-6+1+2*pq/((1-x_norm)*(1-x_norm.transpose(-1,-2))))**2
     return dist, x
 
+#生成size维的稀疏单位矩阵
 def sparse_eye(size):
-    """
-    Returns the identity matrix as a sparse matrix
-    """
+    
     indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size)
     values = torch.tensor(1.0).float().expand(size)
     cls = getattr(torch.sparse, values.type().split(".")[-1])
