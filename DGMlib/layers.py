@@ -23,6 +23,18 @@ def pairwise_poincare_distances(x, dim=-1):
 #生成size维的稀疏单位矩阵
 def sparse_eye(size):
     
+    """
+        1. 这行代码首先使用torch.arange(0, size)创建一个从0到size（不包括size）的一维张量。
+            然后，.long()方法将张量的数据类型转换为长整型。
+            接着，.unsqueeze(0)方法在第0维（即最前面）增加一个维度，使其成为二维张量。
+            最后，.expand(2, size)方法将这个二维张量扩展为一个形状为(2, size)的张量，其中每一行都是从0到size-1的序列。
+        2. 这行代码创建一个值为1.0的张量，然后使用.float()方法确保这个张量的数据类型是浮点型。
+            .expand(size)方法将这个单一值扩展为一个长度为size的一维张量，其中每个元素都是1.0。
+        3. 这行代码首先通过values.type()获取values张量的数据类型（返回一个字符串，如torch.FloatTensor），
+            然后使用.split(".")[-1]获取这个类型名称的最后一个部分（例如，从torch.FloatTensor中获取FloatTensor）。
+            getattr(torch.sparse, ...)根据这个类型名称从torch.sparse模块中获取相应的稀疏张量类。
+        4. 最后，这行代码使用这个稀疏张量类的构造函数创建一个稀疏单位矩阵。
+    """
     indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size)
     values = torch.tensor(1.0).float().expand(size)
     cls = getattr(torch.sparse, values.type().split(".")[-1])
