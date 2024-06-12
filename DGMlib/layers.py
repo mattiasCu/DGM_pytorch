@@ -4,12 +4,12 @@ from pykeops.torch import LazyTensor
 from torch.nn import Module, ModuleList, Sequential
 from torch import nn
 
-#欧氏距离
+# 欧氏距离
 def pairwise_euclidean_distances(x, dim=-1):
     dist = torch.cdist(x,x)**2
     return dist, x
 
-#Poincarè disk 距离 r=1 (双曲距离)
+# Poincarè disk 距离 r=1 (双曲距离)
 def pairwise_poincare_distances(x, dim=-1):
     x_norm = (x**2).sum(dim,keepdim=True)
     x_norm = (x_norm.sqrt()-1).relu() + 1 
@@ -20,9 +20,8 @@ def pairwise_poincare_distances(x, dim=-1):
     dist = torch.arccosh(1e-6+1+2*pq/((1-x_norm)*(1-x_norm.transpose(-1,-2))))**2
     return dist, x
 
-#生成size维的稀疏单位矩阵
+# 生成size维的稀疏单位矩阵
 def sparse_eye(size):
-    
     """
         1. 这行代码首先使用torch.arange(0, size)创建一个从0到size（不包括size）的一维张量。
             然后，.long()方法将张量的数据类型转换为长整型。
@@ -42,6 +41,10 @@ def sparse_eye(size):
 
 
 class DGM_d(nn.Module):
+    
+    """
+        构造函数为嵌入函数embed_f、采样数量k、距离度量distance和是否稀疏sparse
+    """
     def __init__(self, embed_f, k=5, distance="euclidean", sparse=True):
         super(DGM_d, self).__init__()
         
@@ -59,9 +62,9 @@ class DGM_d(nn.Module):
     def forward(self, x, A, not_used=None, fixedges=None):
         if x.shape[0]==1:
             x = x[0]
-        x = self.embed_f(x,A)
+        x = self.embed_f(x,A)                   # 嵌入后的x
         if x.dim()==2:
-            x = x[None,...]
+            x = x[None,...]                     # 如果 x 是二维的，将其扩展为三维
     
         if self.training:
             if fixedges is not None:                
@@ -95,17 +98,44 @@ class DGM_d(nn.Module):
         b,n,_ = x.shape
         
         if self.distance=="euclidean":
-            G_i = LazyTensor(x[:, :, None, :])    # (M**2, 1, 2)
-            X_j = LazyTensor(x[:, None, :, :])    # (1, N, 2)
-        
-            mD = ((G_i - X_j) ** 2).sum(-1)
+            G_i = LazyTensor(x[:, :, None, :])      # 在第三个维度上增加一个新维度，数量是1 [b, n, 1, m]
+            X_j = LazyTensor(x[:, None, :, :])      # 在第二个维度上增加一个新维度，数量为1 [b, 1, n, m]
+            """
+                1.计算每个元素在最后一个维度上的差值，结果的形状为 [b, n, n, m]
+                2. 对最后一个维度上的差值进行平方，然后在倒数第一个维度上求和，结果的形状为 [b, n, n]
+            """
+            mD = ((G_i - X_j) ** 2).sum(-1)         # 计算距离平方和 
 
             #argKmin already add gumbel noise
-            lq = mD * torch.exp(torch.clamp(self.temperature,-5,5))
-            indices = lq.argKmin(self.k, dim=1)
+            """
+                1.torch.clamp 是 PyTorch 中用于限制张量元素值的函数，它可以将张量中的元素限制在指定的范围内。
+                    具体来说，可以将张量中的每个元素值限制在一个最小值和最大值之间，
+                    如果元素值小于最小值，则将其设为最小值；如果元素值大于最大值，则将其设为最大值
+                2.使用 argKmin 找到每个 xi 到其他xj最近的 K 个点的索引。
+                    参数 dim=1 指定沿第二个维度查找最近的 K 个点
+            """
+            lq = mD * torch.exp(torch.clamp(self.temperature,-5,5)) 
+            indices = lq.argKmin(self.k, dim=1)     # [b, n ,k]
 
-            x1 = torch.gather(x, -2, indices.view(indices.shape[0],-1)[...,None].repeat(1,1,x.shape[-1]))
-            x2 = x[:,:,None,:].repeat(1,1,self.k,1).view(x.shape[0],-1,x.shape[-1])
+            """
+                维度变化：[b, n, k] -> [b, n*k] -> [b, n*k, 1] -> [b, n*k, m]
+                1.gather 函数的作用是根据索引从输入张量中取出对应的元素，然后根据索引重新排列成输出张量，input 和 index 的形状必须是相同的。
+                    例如，对于输入张量 input[i][j]，如果索引是 index[i][j]，那么输出张量 output[i][j] = input[index[i][j]][j]
+                    
+                2.view 函数的作用是将输入张量重塑为指定形状的输出张量，但是输出张量的元素数目必须与输入张量的元素数目相同。
+                
+                3.[...,None] 表示在最后一个维度上增加一个新维度，数量是1
+                
+                4.repeat 函数的作用是将输入张量沿指定维度复制指定次数，然后将结果张量返回。
+                
+            """
+            x1 = torch.gather(x, -2, indices.view(indices.shape[0],-1)[...,None].repeat(1,1,x.shape[-1]))       #[b, n*k, m]
+            """
+                [b, n, m] -> [b, n, 1, m] -> [b, n, k, m] -> [b, n*k, m]
+            """
+            x2 = x[:,:,None,:].repeat(1,1,self.k,1).view(x.shape[0],-1,x.shape[-1])                             #[b, n*k, m]
+            
+            #边的概率公式计算
             logprobs = (-(x1-x2).pow(2).sum(-1) * torch.exp(torch.clamp(self.temperature,-5,5))).reshape(x.shape[0],-1,self.k)
 
         if self.distance=="hyperbolic":
@@ -144,7 +174,14 @@ class DGM_d(nn.Module):
             if self.debug:
                 self._x=x.detach().cpu()+0
 
-        
+        """
+            rows: [n]->[1,n,1]->[b,n,k]
+                arange用于生成等间隔序列，
+                torch.arange(start=0, end, step=1, *, out=None, dtype=None, layout=torch.strided, device=None, requires_grad=False) → Tensor
+            stack: [b, n, k], 
+                stack用于沿着新维度将一组张量堆叠在一起       
+
+        """
         rows = torch.arange(n).view(1,n,1).to(x.device).repeat(b,1,self.k)
         edges = torch.stack((indices.view(b,-1),rows.view(b,-1)),-2)
 
