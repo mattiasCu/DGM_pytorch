@@ -4,12 +4,22 @@ from pykeops.torch import LazyTensor
 from torch.nn import Module, ModuleList, Sequential
 from torch import nn
 
+<<<<<<< HEAD
 # 欧氏距离
+=======
+
+#欧氏距离
+>>>>>>> origin/HEAD
 def pairwise_euclidean_distances(x, dim=-1):
     dist = torch.cdist(x,x)**2
     return dist, x
 
+<<<<<<< HEAD
 # Poincarè disk 距离 r=1 (双曲距离)
+=======
+
+#Poincarè disk 距离 r=1 (双曲距离)
+>>>>>>> origin/HEAD
 def pairwise_poincare_distances(x, dim=-1):
     x_norm = (x**2).sum(dim,keepdim=True)
     x_norm = (x_norm.sqrt()-1).relu() + 1 
@@ -20,7 +30,12 @@ def pairwise_poincare_distances(x, dim=-1):
     dist = torch.arccosh(1e-6+1+2*pq/((1-x_norm)*(1-x_norm.transpose(-1,-2))))**2
     return dist, x
 
+<<<<<<< HEAD
 # 生成size维的稀疏单位矩阵
+=======
+
+#生成size维的稀疏单位矩阵
+>>>>>>> origin/HEAD
 def sparse_eye(size):
     """
         1. 这行代码首先使用torch.arange(0, size)创建一个从0到size（不包括size）的一维张量。
