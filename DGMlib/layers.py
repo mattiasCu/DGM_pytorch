@@ -105,7 +105,7 @@ class DGM_d(nn.Module):
                 1.计算每个元素在最后一个维度上的差值，结果的形状为 [b, n, n, m]
                 2. 对最后一个维度上的差值进行平方，然后在倒数第一个维度上求和，结果的形状为 [b, n, n]
             """
-            mD = ((G_i - X_j) ** 2).sum(-1)         # 计算距离平方和 
+            mD = ((G_i - X_j) ** 2).sum(-1)         # 计算距离平方和 [b ,n ,n]
 
             #argKmin already add gumbel noise
             """

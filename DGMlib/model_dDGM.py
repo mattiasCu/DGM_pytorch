@@ -21,19 +21,19 @@ class DGM_Model(pl.LightningModule):
         super(DGM_Model,self).__init__()
         
         if type(hparams) is not Namespace:
-            hparams = Namespace(**hparams)
+            hparams = Namespace(**hparams)              # 用于存储属性的简单对象，其中属性可以通过点号访问，也可以通过字典访问
         
 #         self.hparams=hparams
         self.save_hyperparameters(hparams)
-        conv_layers = hparams.conv_layers
-        fc_layers = hparams.fc_layers
-        dgm_layers = hparams.dgm_layers
+        conv_layers = hparams.conv_layers       # Diffusion层，格式为一个嵌套列表，[input_size, output_size], 这里是三层
+        fc_layers = hparams.fc_layers           
+        dgm_layers = hparams.dgm_layers         # 计算邻接矩阵层，格式为一个嵌套列表，[[input_size, hidden_size, output_size],...], 这里是两层
         k = hparams.k
 
             
         self.graph_f = ModuleList() 
         self.node_g = ModuleList() 
-        for i,(dgm_l,conv_l) in enumerate(zip(dgm_layers,conv_layers)):
+        for (dgm_l,conv_l) in enumerate(zip(dgm_layers,conv_layers)):
             if len(dgm_l)>0:
                 if 'ffun' not in hparams or hparams.ffun == 'gcn':
                     self.graph_f.append(DGM_d(GCNConv(dgm_l[0],dgm_l[-1]),k=hparams.k,distance=hparams.distance))
