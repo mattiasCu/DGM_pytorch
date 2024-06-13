@@ -25,20 +25,20 @@ class DGM_Model(pl.LightningModule):
         
 #         self.hparams=hparams
         self.save_hyperparameters(hparams)
-        conv_layers = hparams.conv_layers       # Diffusion层，格式为一个嵌套列表，[input_size, output_size], 这里是三层
-        fc_layers = hparams.fc_layers           
-        dgm_layers = hparams.dgm_layers         # 计算邻接矩阵层，格式为一个嵌套列表，[[input_size, hidden_size, output_size],...], 这里是两层
-        k = hparams.k
+        conv_layers = hparams.conv_layers       # Diffusion层，[[32, 32], [32, 16], [16, 8]]
+        fc_layers = hparams.fc_layers           # 全连接层，[8, 2]
+        dgm_layers = hparams.dgm_layers         # 计算邻接矩阵层，[[32, 16, 4], [], []]
+        k = hparams.k                           # 保留的最大邻居数
 
             
         self.graph_f = ModuleList() 
         self.node_g = ModuleList() 
-        for (dgm_l,conv_l) in enumerate(zip(dgm_layers,conv_layers)):
+        for i, (dgm_l, conv_l) in enumerate(zip(dgm_layers,conv_layers)):
             if len(dgm_l)>0:
                 if 'ffun' not in hparams or hparams.ffun == 'gcn':
-                    self.graph_f.append(DGM_d(GCNConv(dgm_l[0],dgm_l[-1]),k=hparams.k,distance=hparams.distance))
+                    self.graph_f.append(DGM_d(GCNConv(dgm_l[0],dgm_l[-1]),k=hparams.k,distance=hparams.distance))       # GCNConv(32, 4),只是初始化，没有进行前向传播
                 if hparams.ffun == 'gat':
-                    self.graph_f.append(DGM_d(GATConv(dgm_l[0],dgm_l[-1]),k=hparams.k,distance=hparams.distance))
+                    self.graph_f.append(DGM_d(GATConv(dgm_l[0],dgm_l[-1]),k=hparams.k,distance=hparams.distance))       
                 if hparams.ffun == 'mlp':
                     self.graph_f.append(DGM_d(MLP(dgm_l),k=hparams.k,distance=hparams.distance))
                 if hparams.ffun == 'knn':
@@ -57,6 +57,7 @@ class DGM_Model(pl.LightningModule):
                 self.node_g.append(GATConv(conv_l[0],conv_l[1]))
         
         self.fc = MLP(fc_layers, final_activation=False)
+        
         if hparams.pre_fc is not None and len(hparams.pre_fc)>0:
             self.pre_fc = MLP(hparams.pre_fc, final_activation=True)
         self.avg_accuracy = None

@@ -1,9 +1,9 @@
 import sys
-sys.path.insert(0,'./keops')
+#sys.path.insert(0,'./keops')
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
-os.environ["USE_KEOPS"] = "True";
+os.environ["USE_KEOPS"] = "True"
 
 import pickle
 import numpy as np
@@ -20,6 +20,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 def run_training_process(run_params):
     
+    #数据集加载=======================================================================================================
     train_data = None
     test_data = None
     
@@ -40,8 +41,8 @@ def run_training_process(run_params):
     test_loader = DataLoader(test_data, batch_size=1)
 
     class MyDataModule(pl.LightningDataModule):
-        def setup(self,stage=None):
-            pass
+        def setup(self,stage=None):                 #it 会调用 setup 方法来准备数据，包括训练和验证数据
+            pass                #fit调用后，setup->config_optimizer->val_dataloader->获取samples_per_epoch->获取self.X,self.y,self.mask,self.edge_index
         def train_dataloader(self):
             return train_loader
         def val_dataloader(self):
@@ -50,7 +51,7 @@ def run_training_process(run_params):
             return test_loader
     
     
-    #configure input feature size
+    #配置输入特征大小
     if run_params.pre_fc is None or len(run_params.pre_fc)==0: 
         if len(run_params.dgm_layers[0])>0:
             run_params.dgm_layers[0][0]=train_data.n_features
@@ -58,21 +59,26 @@ def run_training_process(run_params):
     else:
         run_params.pre_fc[0]=train_data.n_features
     run_params.fc_layers[-1] = train_data.num_classes
+    #================================================================================================================
     
-    model = DGM_Model(run_params)
+    #模型训练=========================================================================================================
+    model = DGM_Model(run_params)       # 初始化模型
 
+    #保存模型
     checkpoint_callback = ModelCheckpoint(
-        save_last=True,
-        save_top_k=1,
-        verbose=True,
-        monitor='val_loss',
-        mode='min'
+        save_last=True,         #如果为 True，则会在每个训练结束时保存最后一个 epoch 的模型
+        save_top_k=1,           #保存最好的 k 个模型
+        verbose=True,           #如果为 True，则会在模型保存时打印信息  
+        monitor='val_loss',     #监视的指标，这里是验证集上的损失，如果模型在验证集上的损失最小，则保存模型
+        mode='min'              #模式，min 表示监视的指标越小越好，max 表示监视的指标越大越好
     )
+    
+    #提前停止
     early_stop_callback = EarlyStopping(
-        monitor='val_loss',
-        min_delta=0.00,
-        patience=20,
-        verbose=False,
+        monitor='val_loss',     #监视的指标，这里是验证集上的损失，如果模型在验证集上的损失最小，则保存模型
+        min_delta=0.00,         #最小变化，如果两次连续的验证损失的变化小于这个值，则认为没有改善。设置为 0.00 表示任何微小的改善都被认为是有效的
+        patience=20,            #耐心，如果验证损失在 patience 轮内没有改善，则停止训练
+        verbose=False,          #如果为 True，则会在停止训练时打印信息
         mode='min')
     callbacks = [checkpoint_callback,early_stop_callback]
     
@@ -80,6 +86,8 @@ def run_training_process(run_params):
         callbacks = None
         
     logger = TensorBoardLogger("logs/")
+    
+    #使用 PL 的 from_argparse_args 方法从命令行参数中初始化 Trainer 实例
     trainer = pl.Trainer.from_argparse_args(run_params,logger=logger,
                                             callbacks=callbacks)
     

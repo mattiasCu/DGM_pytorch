@@ -51,12 +51,12 @@ class DGM_d(nn.Module):
         
         self.sparse=sparse
         
-        self.temperature = nn.Parameter(torch.tensor(1. if distance=="hyperbolic" else 4.).float())
+        self.temperature = nn.Parameter(torch.tensor(1. if distance=="hyperbolic" else 4.).float())         #只有一个元素的张量
         self.embed_f = embed_f
         self.centroid=None
         self.scale=None
         self.k = k
-        self.distance = distance
+        self.distance = distance                #str
         
         self.debug=False
         
