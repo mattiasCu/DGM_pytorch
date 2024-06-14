@@ -50,8 +50,8 @@ def run_training_process(run_params):
             在fit时，会依次调用prepare_data->setup->train_dataloader->val_dataloader->test_dataloader
     """
     class MyDataModule(pl.LightningDataModule):
-        def setup(self,stage=None):                 #fit 会调用 setup 方法来准备数据，包括训练和验证数据
-            pass                #fit调用后，setup->config_optimizer->val_dataloader->获取samples_per_epoch->获取self.X,self.y,self.mask,self.edge_index
+        def setup(self,stage=None):              
+            pass                                    #fit调用后，setup->config_optimizer->val_dataloader->获取samples_per_epoch->获取self.X,self.y,self.mask,self.edge_index
         def train_dataloader(self):
             return train_loader
         def val_dataloader(self):
