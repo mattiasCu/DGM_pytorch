@@ -40,8 +40,17 @@ def run_training_process(run_params):
     val_loader = DataLoader(val_data, batch_size=1)
     test_loader = DataLoader(test_data, batch_size=1)
 
+    """
+        LightningDataModule 是一个用于数据处理的类，它将数据准备和加载逻辑集中在一个模块中，以提高代码的可读性和复用性
+            其典型方法有：prepare_data(): 下载或准备数据。只在分布式训练时运行一次。
+                        setup(stage): 设置数据集。根据不同的阶段（'fit', 'test', 'predict'），可以定义不同的操作。
+                        train_dataloader(): 返回训练数据的 DataLoader。
+                        val_dataloader(): 返回验证数据的 DataLoader。
+                        test_dataloader(): 返回测试数据的 DataLoader
+            在fit时，会依次调用prepare_data->setup->train_dataloader->val_dataloader->test_dataloader
+    """
     class MyDataModule(pl.LightningDataModule):
-        def setup(self,stage=None):                 #it 会调用 setup 方法来准备数据，包括训练和验证数据
+        def setup(self,stage=None):                 #fit 会调用 setup 方法来准备数据，包括训练和验证数据
             pass                #fit调用后，setup->config_optimizer->val_dataloader->获取samples_per_epoch->获取self.X,self.y,self.mask,self.edge_index
         def train_dataloader(self):
             return train_loader
